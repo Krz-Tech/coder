@@ -1,0 +1,2 @@
+# coder-templates
+Krz-Tech Networkで使用可能なCoderにインストールしているカスタムテンプレート置き場
