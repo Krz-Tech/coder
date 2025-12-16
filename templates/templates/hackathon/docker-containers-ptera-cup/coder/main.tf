@@ -34,10 +34,9 @@ resource "coder_agent" "main" {
   startup_script = <<-EOT
     set -e
 
-    # Prepare user home with default files on first start.
-    if [ ! -f ~/.init_done ]; then
-      cp -rT /etc/skel ~
-      touch ~/.init_done
+    # Install uv
+    if [ ! type uv > /dev/null 2>&1 ]; then
+      curl -LsSf https://astral.sh/uv/install.sh | sh
     fi
 
     # Add any commands that should be executed at workspace startup (e.g install requirements, start a program, etc) here
@@ -122,6 +121,10 @@ resource "coder_agent" "main" {
   }
 }
 
+data "coder_external_auth" "github" {
+  id = "github"
+}
+
 # # See https://registry.coder.com/modules/coder/code-server
 # module "code-server" {
 #   count  = data.coder_workspace.me.start_count
@@ -145,12 +148,27 @@ resource "coder_agent" "main" {
 #   tooltip    = "You need to [install JetBrains Toolbox](https://coder.com/docs/user-guides/workspace-access/jetbrains/toolbox) to use this app."
 # }
 
+module "git-config" {
+  count    = data.coder_workspace.me.start_count
+  source   = "registry.coder.com/coder/git-config/coder"
+  version  = "1.0.32"
+  agent_id = coder_agent.main.id
+}
+
 module "git-clone" {
   count    = data.coder_workspace.me.start_count
   source   = "registry.coder.com/coder/git-clone/coder"
   version  = "1.2.2"
   agent_id = coder_agent.main.id
   url      = "https://github.com/kurazuuuuuu/ptera-cup-2025"
+}
+
+module "github-upload-public-key" {
+  count            = data.coder_workspace.me.start_count
+  source           = "registry.coder.com/coder/github-upload-public-key/coder"
+  version          = "1.0.32"
+  agent_id         = coder_agent.main.id
+  external_auth_id = data.coder_external_auth.github.id
 }
 
 module "antigravity" {
@@ -174,11 +192,12 @@ module "vscode-web" {
   version        = "1.4.3"
   agent_id       = coder_agent.main.id
   install_prefix = "/home/coder/.vscode-web"
-  folder         = "/home/coder/ptera-cup-2025"
+  # folder         = "/home/coder/ptera-cup-2025"
   accept_license = true
+  auto_install_extensions = true
+  extensions = ["ms-ceintl.vscode-language-pack-ja"]
+  workspace = "/home/coder/ptera-cup-2025/ptera-cup-2025.code-workspace"
 }
-
-
 
 resource "docker_volume" "home_volume" {
   name = "coder-${data.coder_workspace.me.id}-home"
@@ -207,9 +226,23 @@ resource "docker_volume" "home_volume" {
   }
 }
 
+resource "docker_image" "main" {
+  name = "coder-${data.coder_workspace.me.id}"
+  build {
+    context = "./Dockerfile"
+    build_args = {
+      USER = local.username
+    }
+  }
+  triggers = {
+    dir_sha1 = sha1(join("", [for f in fileset(path.module, "build/*") : filesha1(f)]))
+  }
+}
+
+
 resource "docker_container" "workspace" {
   count = data.coder_workspace.me.start_count
-  image = "codercom/enterprise-base:ubuntu"
+  image = docker_image.main.name
   # Uses lower() to avoid Docker restriction on container names.
   name = "coder-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}"
   # Hostname makes the shell more user friendly: coder@my-workspace:~$
