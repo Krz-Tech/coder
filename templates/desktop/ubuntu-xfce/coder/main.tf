@@ -34,12 +34,6 @@ resource "coder_agent" "main" {
   startup_script = <<-EOT
     set -e
 
-    # Install uv
-    if ! command -v uv &> /dev/null; then
-      echo "uv not found, installing uv..."
-      curl -LsSf https://astral.sh/uv/install.sh | sh
-    fi
-
     # Add any commands that should be executed at workspace startup (e.g install requirements, start a program, etc) here
   EOT
 
@@ -48,7 +42,6 @@ resource "coder_agent" "main" {
   # You can remove this block if you'd prefer to configure Git manually or using
   # dotfiles. (see docs/dotfiles.md)
   env = {
-    GIT_REPOSITORY_NAME = "ptera-cup-2025"
     GIT_AUTHOR_NAME     = coalesce(data.coder_workspace_owner.me.full_name, data.coder_workspace_owner.me.name)
     GIT_AUTHOR_EMAIL    = "${data.coder_workspace_owner.me.email}"
     GIT_COMMITTER_NAME  = coalesce(data.coder_workspace_owner.me.full_name, data.coder_workspace_owner.me.name)
@@ -122,82 +115,13 @@ resource "coder_agent" "main" {
   }
 }
 
-data "coder_external_auth" "github" {
-  id = "github"
-}
-
-# # See https://registry.coder.com/modules/coder/code-server
-# module "code-server" {
-#   count  = data.coder_workspace.me.start_count
-#   source = "registry.coder.com/coder/code-server/coder"
-
-#   # This ensures that the latest non-breaking version of the module gets downloaded, you can also pin the module version to prevent breaking changes in production.
-#   version = "~> 1.0"
-
-#   agent_id = coder_agent.main.id
-#   order    = 1
-# }
-
-# See https://registry.coder.com/modules/coder/jetbrains
-# module "jetbrains" {
-#   count      = data.coder_workspace.me.start_count
-#   source     = "registry.coder.com/coder/jetbrains/coder"
-#   version    = "~> 1.1"
-#   agent_id   = coder_agent.main.id
-#   agent_name = "main"
-#   folder     = "/home/coder"
-#   tooltip    = "You need to [install JetBrains Toolbox](https://coder.com/docs/user-guides/workspace-access/jetbrains/toolbox) to use this app."
-# }
-
-module "git-config" {
-  count    = data.coder_workspace.me.start_count
-  source   = "registry.coder.com/coder/git-config/coder"
-  version  = "1.0.32"
-  agent_id = coder_agent.main.id
-}
-
-module "git-clone" {
-  count    = data.coder_workspace.me.start_count
-  source   = "registry.coder.com/coder/git-clone/coder"
-  version  = "1.2.2"
-  agent_id = coder_agent.main.id
-  url      = "https://github.com/kurazuuuuuu/ptera-cup-2025"
-}
-
-module "github-upload-public-key" {
-  count            = data.coder_workspace.me.start_count
-  source           = "registry.coder.com/coder/github-upload-public-key/coder"
-  version          = "1.0.32"
-  agent_id         = coder_agent.main.id
-  external_auth_id = data.coder_external_auth.github.id
-}
-
-module "antigravity" {
-  count    = data.coder_workspace.me.start_count
-  source   = "registry.coder.com/coder/antigravity/coder"
-  version  = "1.0.0"
-  agent_id = coder_agent.main.id
-}
-
-# module "vscode" {
-#   count    = data.coder_workspace.me.start_count
-#   source   = "registry.coder.com/coder/vscode-desktop/coder"
-#   version  = "1.2.0"
-#   agent_id = coder_agent.main.id
-#   folder   = "/home/coder/ptera-cup-2025"
-# }
-
-module "vscode-web" {
-  count          = data.coder_workspace.me.start_count
-  source         = "registry.coder.com/coder/vscode-web/coder"
-  version        = "1.4.3"
-  agent_id       = coder_agent.main.id
-  install_prefix = "/home/coder/.vscode-web"
-  # folder         = "/home/coder/ptera-cup-2025"
-  accept_license          = true
-  auto_install_extensions = true
-  extensions              = ["ms-ceintl.vscode-language-pack-ja"]
-  workspace               = "/home/coder/ptera-cup-2025/ptera-cup-2025.code-workspace"
+module "kasmvnc" {
+  count               = data.coder_workspace.me.start_count
+  source              = "registry.coder.com/coder/kasmvnc/coder"
+  version             = "1.2.7"
+  agent_id            = coder_agent.main.id
+  desktop_environment = "xfce"
+  subdomain           = true
 }
 
 resource "docker_volume" "home_volume" {
